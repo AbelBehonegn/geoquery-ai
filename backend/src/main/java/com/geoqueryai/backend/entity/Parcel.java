@@ -1,17 +1,26 @@
 package com.geoqueryai.backend.entity;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "parcels")
 public class Parcel {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
     private String ownerName;
     private String address;
     private Double area;
 
-    // Default Constructor
     public Parcel() {
     }
 
-    // Parameterized Constructor
     public Parcel(Long id, String ownerName, String address, Double area) {
         this.id = id;
         this.ownerName = ownerName;
