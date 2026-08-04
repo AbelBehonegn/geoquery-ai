@@ -5,7 +5,9 @@ import java.util.Optional;
 
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.LinearRing;
 import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.springframework.stereotype.Service;
 
@@ -27,14 +29,15 @@ public class ParcelService {
         this.parcelRepository = parcelRepository;
     }
 
+    // Create a parcel with Point and optional Polygon boundary
     public Parcel createParcel(CreateParcelRequest request) {
 
-        Coordinate coordinate = new Coordinate(
+        Coordinate locationCoordinate = new Coordinate(
                 request.getLongitude(),
                 request.getLatitude()
         );
 
-        Point location = geometryFactory.createPoint(coordinate);
+        Point location = geometryFactory.createPoint(locationCoordinate);
         location.setSRID(4326);
 
         Parcel parcel = new Parcel();
@@ -43,13 +46,38 @@ public class ParcelService {
         parcel.setArea(request.getArea());
         parcel.setLocation(location);
 
+        if (request.getBoundary() != null
+                && request.getBoundary().size() >= 4) {
+
+            Coordinate[] boundaryCoordinates =
+                    new Coordinate[request.getBoundary().size()];
+
+            for (int i = 0; i < request.getBoundary().size(); i++) {
+
+                List<Double> pair = request.getBoundary().get(i);
+
+                boundaryCoordinates[i] = new Coordinate(
+                        pair.get(0), // longitude
+                        pair.get(1)  // latitude
+                );
+            }
+
+            LinearRing shell =
+                    geometryFactory.createLinearRing(boundaryCoordinates);
+
+            Polygon boundary =
+                    geometryFactory.createPolygon(shell);
+
+            boundary.setSRID(4326);
+
+            parcel.setBoundary(boundary);
+        }
+
         return parcelRepository.save(parcel);
     }
 
     public ParcelResponse createParcelResponse(CreateParcelRequest request) {
-
         Parcel savedParcel = createParcel(request);
-
         return toResponse(savedParcel);
     }
 
@@ -78,6 +106,10 @@ public class ParcelService {
                         existingParcel.setLocation(updatedParcel.getLocation());
                     }
 
+                    if (updatedParcel.getBoundary() != null) {
+                        existingParcel.setBoundary(updatedParcel.getBoundary());
+                    }
+
                     return parcelRepository.save(existingParcel);
                 })
                 .orElseThrow(() -> new ParcelNotFoundException(id));
@@ -90,6 +122,22 @@ public class ParcelService {
         }
 
         parcelRepository.deleteById(id);
+    }
+
+    public List<ParcelResponse> findNearbyParcels(
+            Double latitude,
+            Double longitude,
+            Double distanceMeters) {
+
+        List<Parcel> parcels = parcelRepository.findParcelsNearby(
+                latitude,
+                longitude,
+                distanceMeters
+        );
+
+        return parcels.stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     public ParcelResponse toResponse(Parcel parcel) {

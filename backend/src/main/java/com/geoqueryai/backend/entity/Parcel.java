@@ -1,11 +1,11 @@
 package com.geoqueryai.backend.entity;
-import org.locationtech.jts.geom.Point;
 
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.Polygon;
 
 import jakarta.persistence.Column;
-
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -21,18 +21,36 @@ public class Parcel {
     private Long id;
 
     private String ownerName;
+
     private String address;
+
     private Double area;
 
+    // Parcel location (Point)
+    @JdbcTypeCode(SqlTypes.GEOMETRY)
+    @Column(columnDefinition = "geometry(Point,4326)")
+    private Point location;
+
+    // Parcel boundary (Polygon)
+    @JdbcTypeCode(SqlTypes.GEOMETRY)
+    @Column(columnDefinition = "geometry(Polygon,4326)")
+    private Polygon boundary;
+
+    // Default constructor
     public Parcel() {
     }
 
+    // Constructor without geometry
     public Parcel(Long id, String ownerName, String address, Double area) {
         this.id = id;
         this.ownerName = ownerName;
         this.address = address;
         this.area = area;
     }
+
+    // =========================
+    // Getters and Setters
+    // =========================
 
     public Long getId() {
         return id;
@@ -65,6 +83,7 @@ public class Parcel {
     public void setArea(Double area) {
         this.area = area;
     }
+
     public Point getLocation() {
         return location;
     }
@@ -72,7 +91,12 @@ public class Parcel {
     public void setLocation(Point location) {
         this.location = location;
     }
-    @JdbcTypeCode(SqlTypes.GEOMETRY)
-    @Column(columnDefinition = "geometry(Point,4326)")
-    private Point location;
+
+    public Polygon getBoundary() {
+        return boundary;
+    }
+
+    public void setBoundary(Polygon boundary) {
+        this.boundary = boundary;
+    }
 }
