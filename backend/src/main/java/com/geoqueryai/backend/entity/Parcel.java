@@ -1,4 +1,10 @@
 package com.geoqueryai.backend.entity;
+import org.locationtech.jts.geom.Point;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
+import jakarta.persistence.Column;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -59,4 +65,14 @@ public class Parcel {
     public void setArea(Double area) {
         this.area = area;
     }
+    public Point getLocation() {
+        return location;
+    }
+
+    public void setLocation(Point location) {
+        this.location = location;
+    }
+    @JdbcTypeCode(SqlTypes.GEOMETRY)
+    @Column(columnDefinition = "geometry(Point,4326)")
+    private Point location;
 }
