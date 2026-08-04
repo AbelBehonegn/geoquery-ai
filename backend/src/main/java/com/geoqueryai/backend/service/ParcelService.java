@@ -12,6 +12,7 @@ import org.locationtech.jts.geom.PrecisionModel;
 import org.springframework.stereotype.Service;
 
 import com.geoqueryai.backend.dto.CreateParcelRequest;
+import com.geoqueryai.backend.dto.DistanceResponse;
 import com.geoqueryai.backend.dto.ParcelResponse;
 import com.geoqueryai.backend.entity.Parcel;
 import com.geoqueryai.backend.exception.ParcelNotFoundException;
@@ -29,7 +30,7 @@ public class ParcelService {
         this.parcelRepository = parcelRepository;
     }
 
-    // Create a parcel with Point and optional Polygon boundary
+    // Create a parcel with a Point and an optional Polygon boundary
     public Parcel createParcel(CreateParcelRequest request) {
 
         Coordinate locationCoordinate = new Coordinate(
@@ -76,45 +77,70 @@ public class ParcelService {
         return parcelRepository.save(parcel);
     }
 
-    public ParcelResponse createParcelResponse(CreateParcelRequest request) {
+    // Create a parcel and return a clean response DTO
+    public ParcelResponse createParcelResponse(
+            CreateParcelRequest request) {
+
         Parcel savedParcel = createParcel(request);
+
         return toResponse(savedParcel);
     }
 
+    // Save a parcel
     public Parcel saveParcel(Parcel parcel) {
         return parcelRepository.save(parcel);
     }
 
+    // Get all parcels
     public List<Parcel> getAllParcels() {
         return parcelRepository.findAll();
     }
 
+    // Get one parcel by ID
     public Optional<Parcel> getParcelById(Long id) {
         return parcelRepository.findById(id);
     }
 
-    public Parcel updateParcel(Long id, Parcel updatedParcel) {
+    // Update a parcel
+    public Parcel updateParcel(
+            Long id,
+            Parcel updatedParcel) {
 
         return parcelRepository.findById(id)
                 .map(existingParcel -> {
 
-                    existingParcel.setOwnerName(updatedParcel.getOwnerName());
-                    existingParcel.setAddress(updatedParcel.getAddress());
-                    existingParcel.setArea(updatedParcel.getArea());
+                    existingParcel.setOwnerName(
+                            updatedParcel.getOwnerName()
+                    );
+
+                    existingParcel.setAddress(
+                            updatedParcel.getAddress()
+                    );
+
+                    existingParcel.setArea(
+                            updatedParcel.getArea()
+                    );
 
                     if (updatedParcel.getLocation() != null) {
-                        existingParcel.setLocation(updatedParcel.getLocation());
+                        existingParcel.setLocation(
+                                updatedParcel.getLocation()
+                        );
                     }
 
                     if (updatedParcel.getBoundary() != null) {
-                        existingParcel.setBoundary(updatedParcel.getBoundary());
+                        existingParcel.setBoundary(
+                                updatedParcel.getBoundary()
+                        );
                     }
 
                     return parcelRepository.save(existingParcel);
                 })
-                .orElseThrow(() -> new ParcelNotFoundException(id));
+                .orElseThrow(
+                        () -> new ParcelNotFoundException(id)
+                );
     }
 
+    // Delete a parcel
     public void deleteParcel(Long id) {
 
         if (!parcelRepository.existsById(id)) {
@@ -124,22 +150,65 @@ public class ParcelService {
         parcelRepository.deleteById(id);
     }
 
+    // Find parcels near a coordinate
     public List<ParcelResponse> findNearbyParcels(
             Double latitude,
             Double longitude,
             Double distanceMeters) {
 
-        List<Parcel> parcels = parcelRepository.findParcelsNearby(
-                latitude,
-                longitude,
-                distanceMeters
-        );
+        List<Parcel> parcels =
+                parcelRepository.findParcelsNearby(
+                        latitude,
+                        longitude,
+                        distanceMeters
+                );
 
         return parcels.stream()
                 .map(this::toResponse)
                 .toList();
     }
 
+    // Find the parcel polygon containing a coordinate
+    public Optional<ParcelResponse> findParcelContainingPoint(
+            Double latitude,
+            Double longitude) {
+
+        return parcelRepository
+                .findParcelContainingPoint(
+                        latitude,
+                        longitude
+                )
+                .map(this::toResponse);
+    }
+
+    // Calculate distance between two parcel locations
+    public DistanceResponse calculateDistance(
+            Long fromId,
+            Long toId) {
+
+        Double distance =
+                parcelRepository
+                        .calculateDistanceBetweenParcels(
+                                fromId,
+                                toId
+                        );
+
+        if (distance == null) {
+            throw new RuntimeException(
+                    "Unable to calculate distance. "
+                    + "Check that both parcels exist "
+                    + "and have locations."
+            );
+        }
+
+        return new DistanceResponse(
+                fromId,
+                toId,
+                distance
+        );
+    }
+
+    // Convert Parcel entity to ParcelResponse DTO
     public ParcelResponse toResponse(Parcel parcel) {
 
         Double latitude = null;

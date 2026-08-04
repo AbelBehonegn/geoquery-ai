@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.geoqueryai.backend.dto.CreateParcelRequest;
+import com.geoqueryai.backend.dto.DistanceResponse;
 import com.geoqueryai.backend.dto.ParcelResponse;
 import com.geoqueryai.backend.entity.Parcel;
 import com.geoqueryai.backend.service.ParcelService;
@@ -29,7 +30,7 @@ public class ParcelController {
         this.parcelService = parcelService;
     }
 
-    // Create a parcel using latitude and longitude
+    // Create a parcel
     @PostMapping
     public ResponseEntity<ParcelResponse> createParcel(
             @RequestBody CreateParcelRequest request) {
@@ -45,10 +46,7 @@ public class ParcelController {
     // Get all parcels
     @GetMapping
     public ResponseEntity<List<Parcel>> getAllParcels() {
-
-        return ResponseEntity.ok(
-                parcelService.getAllParcels()
-        );
+        return ResponseEntity.ok(parcelService.getAllParcels());
     }
 
     // Find parcels near a coordinate
@@ -68,6 +66,30 @@ public class ParcelController {
         return ResponseEntity.ok(parcels);
     }
 
+    // Find the parcel polygon containing a coordinate
+    @GetMapping("/contains")
+    public ResponseEntity<ParcelResponse> findParcelContainingPoint(
+            @RequestParam Double latitude,
+            @RequestParam Double longitude) {
+
+        return parcelService
+                .findParcelContainingPoint(latitude, longitude)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    // Calculate distance between two parcel locations
+    @GetMapping("/distance")
+    public ResponseEntity<DistanceResponse> calculateDistance(
+            @RequestParam Long fromId,
+            @RequestParam Long toId) {
+
+        DistanceResponse response =
+                parcelService.calculateDistance(fromId, toId);
+
+        return ResponseEntity.ok(response);
+    }
+
     // Get one parcel by ID
     @GetMapping("/{id}")
     public ResponseEntity<Parcel> getParcelById(
@@ -75,9 +97,7 @@ public class ParcelController {
 
         return parcelService.getParcelById(id)
                 .map(ResponseEntity::ok)
-                .orElseGet(() ->
-                        ResponseEntity.notFound().build()
-                );
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     // Update a parcel
