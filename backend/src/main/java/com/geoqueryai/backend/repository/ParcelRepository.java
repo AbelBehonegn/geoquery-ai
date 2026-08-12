@@ -11,7 +11,14 @@ import com.geoqueryai.backend.entity.Parcel;
 
 public interface ParcelRepository extends JpaRepository<Parcel, Long> {
 
-    // Find parcels within a distance measured in meters
+    // =========================
+    // FIND NEARBY PARCELS
+    // =========================
+    // Finds parcels whose location point is within
+    // a given distance from the supplied coordinate.
+    //
+    // We cast geometry to geography so the
+    // distance is interpreted in meters.
     @Query(
         value = """
             SELECT *
@@ -34,7 +41,12 @@ public interface ParcelRepository extends JpaRepository<Parcel, Long> {
             @Param("distanceMeters") Double distanceMeters
     );
 
-    // Find the parcel polygon that contains a coordinate
+
+    // =========================
+    // FIND PARCEL CONTAINING POINT
+    // =========================
+    // Checks which polygon boundary contains
+    // a specific longitude/latitude point.
     @Query(
         value = """
             SELECT *
@@ -56,7 +68,15 @@ public interface ParcelRepository extends JpaRepository<Parcel, Long> {
             @Param("longitude") Double longitude
     );
 
-    // Calculate distance in meters between two parcel location points
+
+    // =========================
+    // CALCULATE DISTANCE
+    // =========================
+    // Calculates the distance between
+    // two parcel location points.
+    //
+    // geography makes PostGIS return
+    // the result in meters.
     @Query(
         value = """
             SELECT ST_Distance(
@@ -75,5 +95,32 @@ public interface ParcelRepository extends JpaRepository<Parcel, Long> {
     Double calculateDistanceBetweenParcels(
             @Param("fromId") Long fromId,
             @Param("toId") Long toId
+    );
+
+
+    // =========================
+    // CALCULATE PARCEL AREA
+    // =========================
+    // Calculates the polygon area.
+    //
+    // Our polygons use SRID 4326,
+    // which stores coordinates in degrees.
+    //
+    // Casting to geography allows PostGIS
+    // to calculate a real-world area
+    // in square meters.
+    @Query(
+        value = """
+            SELECT ST_Area(
+                p.boundary::geography
+            )
+            FROM parcels p
+            WHERE p.id = :id
+              AND p.boundary IS NOT NULL
+            """,
+        nativeQuery = true
+    )
+    Double calculateParcelArea(
+            @Param("id") Long id
     );
 }
