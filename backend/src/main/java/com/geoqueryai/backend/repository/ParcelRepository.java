@@ -9,16 +9,21 @@ import org.springframework.data.repository.query.Param;
 
 import com.geoqueryai.backend.entity.Parcel;
 
-public interface ParcelRepository extends JpaRepository<Parcel, Long> {
+public interface ParcelRepository
+        extends JpaRepository<Parcel, Long> {
+
 
     // =========================
     // FIND NEARBY PARCELS
     // =========================
-    // Finds parcels whose location point is within
-    // a given distance from the supplied coordinate.
+    // Finds parcels whose location point
+    // is within the requested distance.
     //
-    // We cast geometry to geography so the
-    // distance is interpreted in meters.
+    // Longitude = X
+    // Latitude  = Y
+    //
+    // Geography allows distance
+    // calculations in meters.
     @Query(
         value = """
             SELECT *
@@ -27,7 +32,10 @@ public interface ParcelRepository extends JpaRepository<Parcel, Long> {
               AND ST_DWithin(
                     p.location::geography,
                     ST_SetSRID(
-                        ST_MakePoint(:longitude, :latitude),
+                        ST_MakePoint(
+                            :longitude,
+                            :latitude
+                        ),
                         4326
                     )::geography,
                     :distanceMeters
@@ -36,26 +44,49 @@ public interface ParcelRepository extends JpaRepository<Parcel, Long> {
         nativeQuery = true
     )
     List<Parcel> findParcelsNearby(
-            @Param("latitude") Double latitude,
-            @Param("longitude") Double longitude,
-            @Param("distanceMeters") Double distanceMeters
+
+            @Param("latitude")
+            Double latitude,
+
+            @Param("longitude")
+            Double longitude,
+
+            @Param("distanceMeters")
+            Double distanceMeters
     );
 
 
     // =========================
     // FIND PARCEL CONTAINING POINT
     // =========================
-    // Checks which polygon boundary contains
-    // a specific longitude/latitude point.
+    // Finds the parcel polygon that
+    // covers the supplied coordinate.
+    //
+    // ST_Covers is used instead of
+    // ST_Contains because map clicks
+    // can sometimes fall directly
+    // on the polygon boundary.
+    //
+    // ST_Covers returns TRUE when
+    // the point is:
+    //
+    // - inside the polygon
+    // - OR on the polygon boundary
+    //
+    // Longitude = X
+    // Latitude  = Y
     @Query(
         value = """
             SELECT *
             FROM parcels p
             WHERE p.boundary IS NOT NULL
-              AND ST_Contains(
+              AND ST_Covers(
                     p.boundary,
                     ST_SetSRID(
-                        ST_MakePoint(:longitude, :latitude),
+                        ST_MakePoint(
+                            :longitude,
+                            :latitude
+                        ),
                         4326
                     )
               )
@@ -64,19 +95,23 @@ public interface ParcelRepository extends JpaRepository<Parcel, Long> {
         nativeQuery = true
     )
     Optional<Parcel> findParcelContainingPoint(
-            @Param("latitude") Double latitude,
-            @Param("longitude") Double longitude
+
+            @Param("latitude")
+            Double latitude,
+
+            @Param("longitude")
+            Double longitude
     );
 
 
     // =========================
     // CALCULATE DISTANCE
     // =========================
-    // Calculates the distance between
-    // two parcel location points.
+    // Calculates the distance
+    // between two parcel location
+    // points.
     //
-    // geography makes PostGIS return
-    // the result in meters.
+    // Result is returned in meters.
     @Query(
         value = """
             SELECT ST_Distance(
@@ -93,22 +128,25 @@ public interface ParcelRepository extends JpaRepository<Parcel, Long> {
         nativeQuery = true
     )
     Double calculateDistanceBetweenParcels(
-            @Param("fromId") Long fromId,
-            @Param("toId") Long toId
+
+            @Param("fromId")
+            Long fromId,
+
+            @Param("toId")
+            Long toId
     );
 
 
     // =========================
     // CALCULATE PARCEL AREA
     // =========================
-    // Calculates the polygon area.
+    // Calculates polygon area.
     //
-    // Our polygons use SRID 4326,
-    // which stores coordinates in degrees.
+    // Boundary uses SRID 4326.
     //
-    // Casting to geography allows PostGIS
-    // to calculate a real-world area
-    // in square meters.
+    // Casting geometry to geography
+    // makes PostGIS calculate the
+    // real-world area in square meters.
     @Query(
         value = """
             SELECT ST_Area(
@@ -121,6 +159,8 @@ public interface ParcelRepository extends JpaRepository<Parcel, Long> {
         nativeQuery = true
     )
     Double calculateParcelArea(
-            @Param("id") Long id
+
+            @Param("id")
+            Long id
     );
 }

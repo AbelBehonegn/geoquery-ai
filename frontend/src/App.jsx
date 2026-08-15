@@ -10,6 +10,7 @@ import "leaflet/dist/leaflet.css";
 // =========================
 // CUSTOM COMPONENTS
 // =========================
+import AiSearch from "./components/AiSearch.jsx";
 import DrawControl from "./components/DrawControl.jsx";
 import EditParcelForm from "./components/EditParcelForm.jsx";
 import FitBounds from "./components/FitBounds.jsx";
@@ -23,29 +24,26 @@ function App() {
   // STATE
   // =========================
 
-  // All parcels from backend as GeoJSON
   const [parcelData, setParcelData] = useState(null);
 
-  // Nearby-search results
   const [searchResults, setSearchResults] = useState(null);
 
-  // Newly drawn polygon
   const [drawnBoundary, setDrawnBoundary] = useState(null);
 
-  // Parcel selected by clicking an existing feature
   const [selectedParcel, setSelectedParcel] = useState(null);
 
-  // Parcel identified by clicking anywhere on the map
   const [clickedParcel, setClickedParcel] = useState(null);
 
-  // Error message
   const [error, setError] = useState("");
 
-  // Tracks parcel creation
   const [isSaving, setIsSaving] = useState(false);
 
-  // Controls attribute edit form
   const [isEditing, setIsEditing] = useState(false);
+
+  // =========================
+  // AI MESSAGE
+  // =========================
+  const [aiMessage, setAiMessage] = useState("");
 
 
   // =========================
@@ -169,7 +167,6 @@ function App() {
     fetch(url)
       .then((response) => {
 
-        // No parcel contains this point
         if (response.status === 404) {
 
           setClickedParcel(null);
@@ -202,11 +199,140 @@ function App() {
 
 
   // =========================
+  // AI NATURAL LANGUAGE QUERY
+  // =========================
+  async function handleAiQuery(query) {
+
+    try {
+
+      setAiMessage("");
+
+
+      // =========================
+      // SEND USER QUERY TO BACKEND
+      // =========================
+      const response =
+        await fetch(
+          "http://localhost:8080/api/ai/query",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json"
+            },
+
+            body: JSON.stringify({
+              query
+            })
+          }
+        );
+
+
+      if (!response.ok) {
+
+        throw new Error(
+          "AI request failed."
+        );
+      }
+
+
+      // =========================
+      // RECEIVE STRUCTURED AI RESULT
+      // =========================
+      const result =
+        await response.json();
+
+
+      setAiMessage(
+        result.message ??
+        "AI query processed."
+      );
+
+
+      // =========================
+      // ACTION: NEARBY
+      // =========================
+      if (
+        result.action === "nearby"
+        &&
+        result.latitude != null
+        &&
+        result.longitude != null
+        &&
+        result.distance != null
+      ) {
+
+        handleNearbySearch({
+          latitude:
+            result.latitude,
+
+          longitude:
+            result.longitude,
+
+          distance:
+            result.distance
+        });
+
+        return;
+      }
+
+
+      // =========================
+      // ACTION: CONTAINS
+      // =========================
+      if (
+        result.action === "contains"
+        &&
+        result.latitude != null
+        &&
+        result.longitude != null
+      ) {
+
+        handleMapClick({
+          latitude:
+            result.latitude,
+
+          longitude:
+            result.longitude
+        });
+
+        return;
+      }
+
+
+      // =========================
+      // ACTION: HELP
+      // =========================
+      if (
+        result.action === "help"
+      ) {
+
+        setSearchResults(null);
+
+        return;
+      }
+
+    } catch (aiError) {
+
+      setAiMessage(
+        aiError.message
+      );
+
+      setError(
+        aiError.message
+      );
+    }
+  }
+
+
+  // =========================
   // NEW POLYGON DRAWN
   // =========================
   function handlePolygonCreated(coordinates) {
 
     setDrawnBoundary(coordinates);
+
     setError("");
   }
 
@@ -263,8 +389,11 @@ function App() {
         setParcelData(data);
 
         setDrawnBoundary(null);
+
         setSearchResults(null);
+
         setSelectedParcel(null);
+
         setClickedParcel(null);
 
         setError("");
@@ -295,9 +424,14 @@ function App() {
         },
 
         body: JSON.stringify({
-          ownerName: updatedParcel.ownerName,
-          address: updatedParcel.address,
-          area: updatedParcel.area
+          ownerName:
+            updatedParcel.ownerName,
+
+          address:
+            updatedParcel.address,
+
+          area:
+            updatedParcel.area
         })
       }
     )
@@ -334,9 +468,11 @@ function App() {
         setParcelData(data);
 
         setSelectedParcel(null);
+
         setClickedParcel(null);
 
         setIsEditing(false);
+
         setSearchResults(null);
 
         setError("");
@@ -412,7 +548,9 @@ function App() {
         setParcelData(data);
 
         setSelectedParcel(null);
+
         setClickedParcel(null);
+
         setSearchResults(null);
 
         setError("");
@@ -463,8 +601,11 @@ function App() {
         }
 
         setSelectedParcel(null);
+
         setClickedParcel(null);
+
         setSearchResults(null);
+
         setIsEditing(false);
 
         return fetch(
@@ -485,6 +626,7 @@ function App() {
       .then((data) => {
 
         setParcelData(data);
+
         setError("");
       })
       .catch((deleteError) => {
@@ -511,7 +653,6 @@ function App() {
       feature.properties?.id;
 
 
-    // Highlight identified parcel
     if (isClickedParcel) {
 
       return {
@@ -577,7 +718,9 @@ function App() {
       Area:
       ${
         properties.area != null
-          ? `${Number(properties.area).toFixed(2)} m²`
+          ? `${Number(
+              properties.area
+            ).toFixed(2)} m²`
           : "Not available"
       }
 
@@ -595,7 +738,9 @@ function App() {
 
       click: (event) => {
 
-        setSelectedParcel(properties);
+        setSelectedParcel(
+          properties
+        );
 
         setIsEditing(false);
 
@@ -643,10 +788,25 @@ function App() {
 
 
       {/* =========================
-          NEARBY SEARCH PANEL
+          NEARBY SEARCH
          ========================= */}
       <NearbySearch
-        onSearch={handleNearbySearch}
+        onSearch={
+          handleNearbySearch
+        }
+      />
+
+
+      {/* =========================
+          AI SEARCH
+         ========================= */}
+      <AiSearch
+        onQuery={
+          handleAiQuery
+        }
+        resultMessage={
+          aiMessage
+        }
       />
 
 
@@ -670,36 +830,45 @@ function App() {
           }}
         >
 
-          <h3 style={{ marginTop: 0 }}>
+          <h3
+            style={{
+              marginTop: 0
+            }}
+          >
             Parcel Found
           </h3>
 
 
           <div>
-            <strong>ID:</strong>{" "}
+            <strong>
+              ID:
+            </strong>{" "}
             {clickedParcel.id}
           </div>
 
 
           <div>
-            <strong>Owner:</strong>{" "}
+            <strong>
+              Owner:
+            </strong>{" "}
             {clickedParcel.ownerName ??
               "Unknown"}
           </div>
 
 
           <div>
-            <strong>Address:</strong>{" "}
+            <strong>
+              Address:
+            </strong>{" "}
             {clickedParcel.address ??
               "No address"}
           </div>
 
 
-          {/* =========================
-              FORMATTED AREA
-             ========================= */}
           <div>
-            <strong>Area:</strong>{" "}
+            <strong>
+              Area:
+            </strong>{" "}
 
             {clickedParcel.area != null
               ? `${Number(
@@ -748,36 +917,45 @@ function App() {
           }}
         >
 
-          <h3 style={{ marginTop: 0 }}>
+          <h3
+            style={{
+              marginTop: 0
+            }}
+          >
             Selected Parcel
           </h3>
 
 
           <div>
-            <strong>ID:</strong>{" "}
+            <strong>
+              ID:
+            </strong>{" "}
             {selectedParcel.id}
           </div>
 
 
           <div>
-            <strong>Owner:</strong>{" "}
+            <strong>
+              Owner:
+            </strong>{" "}
             {selectedParcel.ownerName ??
               "Unknown"}
           </div>
 
 
           <div>
-            <strong>Address:</strong>{" "}
+            <strong>
+              Address:
+            </strong>{" "}
             {selectedParcel.address ??
               "No address"}
           </div>
 
 
-          {/* =========================
-              FORMATTED AREA
-             ========================= */}
           <div>
-            <strong>Area:</strong>{" "}
+            <strong>
+              Area:
+            </strong>{" "}
 
             {selectedParcel.area != null
               ? `${Number(
@@ -787,7 +965,6 @@ function App() {
           </div>
 
 
-          {/* EDIT PARCEL */}
           <button
             type="button"
             onClick={() =>
@@ -804,7 +981,6 @@ function App() {
           </button>
 
 
-          {/* DELETE PARCEL */}
           <button
             type="button"
             onClick={
@@ -821,7 +997,6 @@ function App() {
           </button>
 
 
-          {/* CLOSE */}
           <button
             type="button"
             onClick={() => {
@@ -922,7 +1097,7 @@ function App() {
             left: "50%",
             transform:
               "translateX(-50%)",
-            zIndex: 1300,
+            zIndex: 1500,
             background: "white",
             padding: "10px 14px",
             borderRadius: "6px",
@@ -973,9 +1148,11 @@ function App() {
           parcelData={
             parcelData
           }
+
           onPolygonCreated={
             handlePolygonCreated
           }
+
           onPolygonEdited={
             handlePolygonEdited
           }
@@ -996,17 +1173,22 @@ function App() {
         {parcelData && (
 
           <GeoJSON
-            key={JSON.stringify({
-              parcelData,
-              clickedParcelId:
-                clickedParcel?.id
-            })}
+            key={
+              JSON.stringify({
+                parcelData,
+                clickedParcelId:
+                  clickedParcel?.id
+              })
+            }
+
             data={
               parcelData
             }
+
             style={
               parcelStyle
             }
+
             onEachFeature={
               onEachParcel
             }
@@ -1033,12 +1215,15 @@ function App() {
                   searchResults
                 )
               }
+
               data={
                 searchResults
               }
+
               style={
                 nearbyResultStyle
               }
+
               onEachFeature={
                 onEachParcel
               }

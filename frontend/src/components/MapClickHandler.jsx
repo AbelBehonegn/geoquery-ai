@@ -2,16 +2,9 @@ import { useMapEvents } from "react-leaflet";
 
 function MapClickHandler({ onMapClick }) {
 
-  // =========================
-  // LISTEN FOR MAP CLICKS
-  // =========================
   useMapEvents({
 
     click: (event) => {
-
-      // Leaflet gives us:
-      // event.latlng.lat
-      // event.latlng.lng
 
       const latitude =
         event.latlng.lat;
@@ -19,8 +12,15 @@ function MapClickHandler({ onMapClick }) {
       const longitude =
         event.latlng.lng;
 
-      // Send coordinates back
-      // to App.jsx
+      // =========================
+      // TEMPORARY DEBUG OUTPUT
+      // =========================
+      console.log(
+        "Clicked coordinates:",
+        latitude,
+        longitude
+      );
+
       onMapClick({
         latitude,
         longitude
@@ -28,9 +28,6 @@ function MapClickHandler({ onMapClick }) {
     }
   });
 
-
-  // This component does not
-  // display any HTML.
   return null;
 }
 
